@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 
-from compressible_tools import isentropic_pressure_ratio, oblique_shock_angle, oblique_shock_aft_M, expansion_fan_aft_M, oblique_shock_pressure_ratio, oblique_shock_stag_pressure_ratio
+from flow54.compressible_tools import isentropic_pressure_ratio, oblique_shock_angle, oblique_shock_aft_M, expansion_fan_aft_M, oblique_shock_pressure_ratio, oblique_shock_stag_pressure_ratio
 
 class DiamondAirfoil:
     """Defines a supersonic, diamond airfoil. Analyzed using shock-expansion theory.
