@@ -433,3 +433,43 @@ def M_crit(gamma, C_p_min_inc, rule='P-G'):
         iteration += 1
 
     return M2
+
+
+def RK4(f, x0, t0, t1, dt):
+    """Integrates f(t,x) from t0 to t1 in steps of dt.
+    
+    Parameters
+    ----------
+    f : callable
+        Function to integrate.
+
+    x0 : ndarray
+        Initial state for dependent variables.
+    
+    t0 : float
+        Initial state for independent variable.
+    
+    t1 : float
+        Final state for independent variable.
+
+    dt : float
+        Step size for independent variable.
+    """
+
+    # Initialize storage
+    t = np.arange(t0, t1, dt)
+    N = len(t)
+    x = np.zeros((N,len(x0)))
+    x[0,:] = x0
+
+    # Loop
+    for i, (ti, xi) in enumerate(zip(t,x)):
+
+        k1 = f(ti, xi)
+        k2 = f(ti+0.5*dt, xi+0.5*dt*k1)
+        k3 = f(ti+0.5*dt, xi+0.5*dt*k2)
+        k4 = f(ti+dt, xi+dt*k3)
+
+        x[i+1,:] = 0.1666666666666666666667*dt*(k1 + 2.0*k2 + 2.0*k3 + k4)
+
+    return t, x
