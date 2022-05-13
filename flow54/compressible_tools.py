@@ -463,13 +463,13 @@ def RK4(f, x0, t0, t1, dt):
     x[0,:] = x0
 
     # Loop
-    for i, (ti, xi) in enumerate(zip(t,x)):
+    for i, (ti, xi) in enumerate(zip(t[:-1],x[:-1])):
 
         k1 = f(ti, xi)
         k2 = f(ti+0.5*dt, xi+0.5*dt*k1)
         k3 = f(ti+0.5*dt, xi+0.5*dt*k2)
         k4 = f(ti+dt, xi+dt*k3)
 
-        x[i+1,:] = 0.1666666666666666666667*dt*(k1 + 2.0*k2 + 2.0*k3 + k4)
+        x[i+1,:] = xi+ 0.1666666666666666666667*dt*(k1 + 2.0*k2 + 2.0*k3 + k4)
 
     return t, x
