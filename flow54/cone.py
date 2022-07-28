@@ -1,5 +1,8 @@
-import numpy as np
+import scipy.optimize as sopt
+
 from compressible_tools import *
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -65,8 +68,10 @@ class Cone:
         x_dot[0] = x2
 
         # d2V_r/dtheta2
-        f = 0.5*(self.gamma-1.0)*(1.0 - x1**2 - x2**2)
-        x_dot[1] = (x1*x2 - f*(2.0*x1 + x2/np.tan(theta))) / (f - x2**2)
+        x22 = x2*x2
+        f = 0.5*(self.gamma-1.0)*(1.0 - x1**2 - x22)
+        denom = f - x22
+        x_dot[1] = (x1*x22 - f*(2.0*x1 + x2/np.tan(theta))) / denom
 
         return x_dot
 
@@ -84,6 +89,11 @@ class Cone:
 
         gamma : float
             Ratio of specific heats.
+
+        Returns
+        -------
+        theta_c : float
+            Cone angle in degrees which will support the given shock angle.
         """
 
         self.gamma = gamma
@@ -101,7 +111,7 @@ class Cone:
         V_prime = V_prime_from_M(M2, gamma)
 
         # Calculate V_r and V_theta
-        a = B-d
+        a = B - d
         V_r = V_prime*np.cos(a)
         V_theta = -V_prime*np.sin(a)
 
@@ -112,18 +122,43 @@ class Cone:
         #plt.figure()
         #plt.plot(np.degrees(theta), V_r_space, label="$V'_r$")
         #plt.plot(np.degrees(theta), V_theta_space, label="$V'_\\theta$")
+        #plt.xlabel("$\\theta$")
+        #plt.ylabel("$V'$")
         #plt.legend()
         #plt.show()
 
         # Find where we cross V_theta = 0
         for i in range(len(V_theta_space)-1):
 
-            if np.sign(V_theta_space[i]) != np.sign(V_theta_space[i+1]):
+            if abs(V_theta_space[i]) < 1e-12:
+                return np.degrees(theta[i])
+
+            elif np.sign(V_theta_space[i]) != np.sign(V_theta_space[i+1]):
 
                 theta_c = theta[i+1] - (V_theta_space[i+1] * (theta[i]-theta[i+1])) / (V_theta_space[i] - V_theta_space[i+1])
-                return theta_c
+                return np.degrees(theta_c)
 
         return np.nan
+
+
+    def shock_angle_from_taylor_maccoll(self, M, gamma):
+        """Calculates the shock angle off of the cone using the Taylor-MacColl equations.
+        
+        Parameters
+        ----------
+        M : float
+            Freestream Mach number.
+        
+        gamma : float
+            Ratio of specific heats.
+        
+        Returns
+        -------
+        beta : float
+            Shock angle in radians.
+        """
+
+        pass
 
     
     def calc_surface_properties(self, M, gamma):
@@ -146,8 +181,9 @@ if __name__=="__main__":
     cone = Cone(10.0)
 
     # Declare range of Mach numbers and shock angles
-    Ms = [1.5, 2.0, 3.0, 5.0]
-    N_betas = 50
+    Ms = [1.5, 2.0, 3.0]
+    #Ms = [3.0]
+    N_betas = 100
 
     # Loop
     plt.figure()
@@ -155,17 +191,21 @@ if __name__=="__main__":
 
         # Determine minimum shock angle
         beta_min = np.degrees(np.arcsin(1.0/M))
-        betas = np.linspace(beta_min, 65.0, N_betas)
+        betas = np.linspace(beta_min, 75.0, N_betas)
 
         # Loop
         theta_c = np.zeros(N_betas)
-        for j, beta in enumerate(betas[1:]):
+        for j, beta in enumerate(betas):
 
-            theta_c[j+1] = np.degrees(cone.cone_angle_from_taylor_maccoll(M, 1.4, beta))
+            theta_c[j] = cone.cone_angle_from_taylor_maccoll(M, 1.4, beta)
 
-        plt.plot(theta_c, betas, label=str(M))
+        series = plt.plot(theta_c, betas, label=str(M))
 
-    plt.legend()
+        # Plot Mach angle
+        mu = np.degrees(np.arcsin(1.0/M))
+        plt.plot(theta_c, np.ones_like(theta_c)*mu, '--', color=series[0].get_color())
+
+    plt.legend(title='$M_\infty$')
     plt.xlabel("$\\theta_c$")
     plt.ylabel("$\\beta$")
     plt.show()
