@@ -1,5 +1,6 @@
 from unittest import result
 import scipy.optimize as sopt
+import scipy.integrate as sint
 
 from compressible_tools import *
 
@@ -12,7 +13,9 @@ def V_prime_from_M(M, gamma):
 
 
 def M_from_V_prime(V_prime, gamma):
-    return np.sqrt(2.0/((gamma-1.0)*(V_prime**-2 - 1.0)))
+    print("V'", V_prime)
+    x = V_prime**-2 - 1.0
+    return (0.5*(gamma-1.0)*x)**-0.5
 
 
 class ConeFlow:
@@ -29,6 +32,7 @@ class ConeFlow:
         Parameters
         ----------
         theta : float
+            Ray angle.
 
         x : ndarray
             First component is V_r; second is V_theta.
@@ -97,9 +101,18 @@ class ConeFlow:
 
         # Integrate
         self.gamma = gamma
-        theta, x = RK4(self._taylor_maccoll_state_space, np.array([V_r, V_theta]), B, 0.0, -B/1000.0)
+        #integrator = sint.ode(self._taylor_maccoll_state_space)
+        #integrator.set_integrator('vode', method='bdf', nsteps=1000000)
+        #integrator.set_initial_value(np.array([V_r, V_theta]), t=B)
+        #dt = -B/2000.0
+        #while integrator.successful() and integrator.y[1] <= 0.0:
+        #    print(integrator.t+dt, integrator.integrate(integrator.t+dt))
+        theta, x = RK4(self._taylor_maccoll_state_space, np.array([V_r, V_theta]), B, 0.0, -B/2000.0)
         V_r_space = x[:,0]
         V_theta_space = x[:,1]
+        plt.figure()
+        plt.plot(theta, V_theta_space)
+        plt.show()
 
         # Find where we cross V_theta = 0
         for i in range(len(V_theta_space)-1):
@@ -117,9 +130,10 @@ class ConeFlow:
                 M_surf = M_from_V_prime(V_r_c, gamma)
                 break
 
+        # This really shouldn't ever happen, technically, but it's the limiting case
         else:   
-            theta_c = np.nan
-            M_surf = np.nan
+            theta_c = 0.0
+            M_surf = M
 
         return theta_c, M_surf
 
@@ -150,29 +164,39 @@ class ConeFlow:
             Surface pressure coefficient.
         """
 
+        print("Figuring out the shock angle")
+
         # Function to find root of
         def f(b):
+            print()
+            print(b)
             theta_c_guess,_ = self.cone_angle_from_taylor_maccoll(M, gamma, b)
             diff = theta_c - theta_c_guess
+            print(diff)
             return diff
 
-        # Find root
+        # Plot function
         mach_angle = np.degrees(mu(M))
+        #betas = np.linspace(mach_angle, 70.0, 100)
+        #diffs = np.zeros_like(betas)
+        #for i, beta in enumerate(betas):
+        #    diffs[i] = f(beta)
+        #plt.figure()
+        #plt.plot(betas, diffs)
+        #plt.show()
+
+        # Find root
         result = sopt.root_scalar(f, bracket=[mach_angle, 70.0], method='bisect')
-        #result = sopt.root_scalar(f, x0=mach_angle*1.05, x1=mach_angle*1.2)
         beta = result.root
 
         # Get surface Mach number
-        _,M_surf = self.cone_angle_from_taylor_maccoll(M, gamma, beta)
+        theta_c_guess,M_surf = self.cone_angle_from_taylor_maccoll(M, gamma, beta)
 
         # Get shock angle in radians
         B = np.radians(beta)
-        print()
-        print(beta)
 
         # Calculate pressure ratio from freestream to surface
         R_P = isentropic_pressure_ratio(M, gamma)*oblique_shock_stag_pressure_ratio(M, gamma, B)/isentropic_pressure_ratio(M_surf, gamma)
-        print(oblique_shock_stag_pressure_ratio(M, gamma, B))#isentropic_pressure_ratio(M_surf, gamma)
 
         # Calculate surface pressure coefficient
         C_p = (R_P - 1.0)/(0.5*gamma*M**2)
@@ -232,25 +256,31 @@ if __name__=="__main__":
     # Initialize cone
     cone = ConeFlow()
 
-    # Plot pressure coefficient as a function of Mach number
-    Ms = np.linspace(1.5, 3.0, 5)
-    Cp = np.zeros_like(Ms)
-    M_surf = np.zeros_like(Ms)
-    beta = np.zeros_like(Ms)
-    for i, M in enumerate(Ms):
-        beta[i],M_surf[i],Cp[i] = cone.calc_flow(5.0, M, 1.4)
+    mach_angle = np.degrees(mu(2.0))
+    cone.cone_angle_from_taylor_maccoll(1.5, 1.4, mach_angle)
 
-    # Plot
-    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(6.5, 2.2))
-    ax[0].plot(Ms, Cp)
-    ax[0].set_xlabel('$M_\infty$')
-    ax[0].set_ylabel('$C_P$')
+    ## Plot pressure coefficient as a function of Mach number
+    #Ms = np.linspace(1.5, 3.0, 5)
+    #Cp = np.zeros_like(Ms)
+    #M_surf = np.zeros_like(Ms)
+    #beta = np.zeros_like(Ms)
+    #for i, M in enumerate(Ms):
+    #    print()
+    #    print()
+    #    print("M", M)
+    #    beta[i],M_surf[i],Cp[i] = cone.calc_flow(10.0, M, 1.4)
 
-    ax[1].plot(Ms, beta)
-    ax[1].set_xlabel('$M_\infty$')
-    ax[1].set_ylabel('Shock Angle')
+    ## Plot
+    #fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(6.5, 2.2))
+    #ax[0].plot(Ms, Cp)
+    #ax[0].set_xlabel('$M_\infty$')
+    #ax[0].set_ylabel('$C_P$')
 
-    ax[2].plot(Ms, M_surf)
-    ax[2].set_xlabel('$M_\infty$')
-    ax[2].set_ylabel('$M_{surf}$')
-    plt.show()
+    #ax[1].plot(Ms, beta)
+    #ax[1].set_xlabel('$M_\infty$')
+    #ax[1].set_ylabel('Shock Angle')
+
+    #ax[2].plot(Ms, M_surf)
+    #ax[2].set_xlabel('$M_\infty$')
+    #ax[2].set_ylabel('$M_{surf}$')
+    #plt.show()

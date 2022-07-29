@@ -214,7 +214,8 @@ def M_from_rayleigh_pitot(P_ratio, gamma):
 def oblique_wedge_angle(M, gamma, beta):
     # Gives the oblique wedge angle as a function of upstream Mach number, gamma, and shock angle
 
-    a = 2.*(M**2*np.sin(beta)**2-1.)
+    Mn12 = (M*np.sin(beta))**2
+    a = 2.*(Mn12-1.)
     b = np.tan(beta)*(2.+M**2*(gamma+np.cos(2.*beta)))
     return np.arctan(a/b)
 
@@ -313,7 +314,9 @@ def oblique_shock_temperature_ratio(M, gamma, beta):
 def oblique_shock_aft_M(M, gamma, beta, theta):
     # Calculates the Mach number aft of the given shock
 
-    Mn2 = np.sqrt((1.+0.5*(gamma-1.)*(M*np.sin(beta))**2)/(gamma*(M*np.sin(beta))**2-0.5*(gamma-1.)))
+    Mn1 = M*np.sin(beta)
+    Mn12 = Mn1*Mn1
+    Mn2 = np.sqrt((1.+0.5*(gamma-1.)*Mn12)/(gamma*Mn12-0.5*(gamma-1.)))
     return Mn2/np.sin(beta-theta)
 
 
@@ -464,14 +467,26 @@ def RK4(f, x0, t0, t1, dt):
     x = np.zeros((N,len(x0)))
     x[0,:] = x0
 
+    k1 = 0.0
+    k2 = 0.0
+    k3 = 0.0
+    k4 = 0.0
+    ti = 0.0
+    xi = np.zeros(len(x0))
+
+    a = 0.166666666666666666666666667*dt
+
     # Loop
-    for i, (ti, xi) in enumerate(zip(t[:-1],x[:-1])):
+    for i in range(N-1):
+
+        ti = t[i]
+        xi = x[i,:]
 
         k1 = f(ti, xi)
         k2 = f(ti+0.5*dt, xi+0.5*dt*k1)
         k3 = f(ti+0.5*dt, xi+0.5*dt*k2)
         k4 = f(ti+dt, xi+dt*k3)
 
-        x[i+1,:] = xi + 0.1666666666666666666667*dt*(k1 + 2.0*k2 + 2.0*k3 + k4)
+        x[i+1,:] = xi + a*(k1 + 2.0*k2 + 2.0*k3 + k4)
 
     return t, x
