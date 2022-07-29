@@ -15,18 +15,12 @@ def M_from_V_prime(V_prime, gamma):
     return np.sqrt(2.0/((gamma-1.0)*(V_prime**-2 - 1.0)))
 
 
-class Cone:
-    """Class for calculating axisymmetric conical flows in supersonic flow.
-    
-    Parameters
-    ----------
-    theta : float
-        Cone half angle in degrees.
-    """
+class ConeFlow:
+    """Class for calculating axisymmetric conical flows in supersonic flow."""
 
-    def __init__(self, theta):
+    def __init__(self):
 
-        self.theta = np.radians(theta)
+        pass
 
 
     def _taylor_maccoll_state_space(self, theta, x):
@@ -84,8 +78,6 @@ class Cone:
             Surface Mach number.
         """
 
-        self.gamma = gamma
-
         # Get shock angle in radians
         B = np.radians(beta)
 
@@ -104,16 +96,10 @@ class Cone:
         V_theta = -V_prime*np.sin(a)
 
         # Integrate
+        self.gamma = gamma
         theta, x = RK4(self._taylor_maccoll_state_space, np.array([V_r, V_theta]), B, 0.0, -B/1000.0)
         V_r_space = x[:,0]
         V_theta_space = x[:,1]
-        #plt.figure()
-        #plt.plot(np.degrees(theta), V_r_space, label="$V'_r$")
-        #plt.plot(np.degrees(theta), V_theta_space, label="$V'_\\theta$")
-        #plt.xlabel("$\\theta$")
-        #plt.ylabel("$V'$")
-        #plt.legend()
-        #plt.show()
 
         # Find where we cross V_theta = 0
         for i in range(len(V_theta_space)-1):
@@ -138,11 +124,14 @@ class Cone:
         return theta_c, M_surf
 
 
-    def shock_angle_from_taylor_maccoll(self, M, gamma):
-        """Calculates the shock angle off of the cone using the Taylor-MacColl equations.
+    def calc_flow(self, theta_c, M, gamma):
+        """Calculates the shock angle off of the cone, surface Mach number, and pressure coefficient using the Taylor-MacColl equations.
         
         Parameters
         ----------
+        theta_c : float
+            Cone angle in degrees.
+
         M : float
             Freestream Mach number.
         
@@ -154,74 +143,114 @@ class Cone:
         beta : float
             Shock angle in degrees.
 
+        M_surf : float
+            Surface Mach number.
+
         C_p : float
-            Pressure coefficient on surface of cone.
+            Surface pressure coefficient.
         """
 
         # Function to find root of
         def f(b):
-            theta_c,_ = self.cone_angle_from_taylor_maccoll(M, gamma, b)
-            diff = np.degrees(self.theta) - theta_c
+            theta_c_guess,_ = self.cone_angle_from_taylor_maccoll(M, gamma, b)
+            diff = theta_c - theta_c_guess
             return diff
 
         # Find root
         mach_angle = np.degrees(mu(M))
-        result = sopt.root_scalar(f, bracket=[mach_angle, 65.0])
+        result = sopt.root_scalar(f, bracket=[mach_angle, 70.0], method='bisect')
         #result = sopt.root_scalar(f, x0=mach_angle*1.05, x1=mach_angle*1.2)
         beta = result.root
+
+        # Get surface Mach number
         _,M_surf = self.cone_angle_from_taylor_maccoll(M, gamma, beta)
 
-        return beta
+        # Get shock angle in radians
+        B = np.radians(beta)
+        print()
+        print(beta)
 
-    
-    def calc_surface_properties(self, M, gamma):
-        """Calculates the surface Mach number and pressure on the cone.
+        # Calculate pressure ratio from freestream to surface
+        R_P = isentropic_pressure_ratio(M, gamma)*oblique_shock_stag_pressure_ratio(M, gamma, B)/isentropic_pressure_ratio(M_surf, gamma)
+        print(oblique_shock_stag_pressure_ratio(M, gamma, B))#isentropic_pressure_ratio(M_surf, gamma)
+
+        # Calculate surface pressure coefficient
+        C_p = (R_P - 1.0)/(0.5*gamma*M**2)
+
+        return beta, M_surf, C_p
+
+
+    def plot_shock_to_cone_angles(self, M_range, gamma=1.4, N_machs=5, N_angles=50):
+        """Plots a chart of shock angle to cone angle.
         
         Parameters
         ----------
-        M : float
-            Freestream Mach number.
+        M_range : list
+            Lower and upper bounds for the Mach number range to plot.
             
-        gamma : float
-            Ratio of specific heats.
+        gamma : float, optional
+            Ratio of specific heats. Defaults to 1.4.
+
+        N_machs : int, optional
+            Number of Mach numbers to plot. Defaults to 5.
+        
+        N_angles : int, optional
+            Number of shock angles to plot. Defaults to 50.
         """
 
-        pass
+        # Initialize Mach range
+        Ms = np.logspace(np.log10(M_range[0]), np.log10(M_range[1]), N_machs)
+
+        # Loop
+        plt.figure()
+        for i, M in enumerate(Ms):
+
+            # Initialize range of shock angles
+            mach_angle = np.degrees(mu(M))
+            betas = np.linspace(mach_angle, 75.0, N_angles)
+
+            # Loop
+            theta_c = np.zeros(N_angles)
+            for j, beta in enumerate(betas):
+
+                theta_c[j],_ = cone.cone_angle_from_taylor_maccoll(M, gamma, beta)
+
+            series = plt.plot(theta_c, betas, label=str(round(M, 2)))
+
+            # Plot Mach angle
+            plt.plot(theta_c, np.ones_like(theta_c)*mach_angle, '--', color=series[0].get_color())
+
+        plt.legend(title='$M_\infty$')
+        plt.xlabel("$\\theta_c$")
+        plt.ylabel("$\\beta$")
+        plt.show()
+
 
 
 if __name__=="__main__":
 
-    cone = Cone(10.0)
+    # Initialize cone
+    cone = ConeFlow()
 
-    # Declare range of Mach numbers and shock angles
-    Ms = [1.5, 2.0, 3.0, 5.0]
-    N_betas = 200
-
-    print(cone.shock_angle_from_taylor_maccoll(1.5, 1.4))
-    print(cone.shock_angle_from_taylor_maccoll(2.0, 1.4))
-    print(cone.shock_angle_from_taylor_maccoll(3.0, 1.4))
-    print(cone.shock_angle_from_taylor_maccoll(5.0, 1.4))
-
-    # Loop
-    plt.figure()
+    # Plot pressure coefficient as a function of Mach number
+    Ms = np.linspace(1.5, 3.0, 5)
+    Cp = np.zeros_like(Ms)
+    M_surf = np.zeros_like(Ms)
+    beta = np.zeros_like(Ms)
     for i, M in enumerate(Ms):
+        beta[i],M_surf[i],Cp[i] = cone.calc_flow(5.0, M, 1.4)
 
-        # Initialize range of shock angles
-        mach_angle = np.degrees(mu(M))
-        betas = np.linspace(mach_angle, 75.0, N_betas)
+    # Plot
+    fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(6.5, 2.2))
+    ax[0].plot(Ms, Cp)
+    ax[0].set_xlabel('$M_\infty$')
+    ax[0].set_ylabel('$C_P$')
 
-        # Loop
-        theta_c = np.zeros(N_betas)
-        for j, beta in enumerate(betas):
+    ax[1].plot(Ms, beta)
+    ax[1].set_xlabel('$M_\infty$')
+    ax[1].set_ylabel('Shock Angle')
 
-            theta_c[j],_ = cone.cone_angle_from_taylor_maccoll(M, 1.4, beta)
-
-        series = plt.plot(theta_c, betas, label=str(M))
-
-        # Plot Mach angle
-        plt.plot(theta_c, np.ones_like(theta_c)*mach_angle, '--', color=series[0].get_color())
-
-    plt.legend(title='$M_\infty$')
-    plt.xlabel("$\\theta_c$")
-    plt.ylabel("$\\beta$")
+    ax[2].plot(Ms, M_surf)
+    ax[2].set_xlabel('$M_\infty$')
+    ax[2].set_ylabel('$M_{surf}$')
     plt.show()

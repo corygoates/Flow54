@@ -320,9 +320,11 @@ def oblique_shock_aft_M(M, gamma, beta, theta):
 def oblique_shock_stag_pressure_ratio(M, gamma, beta):
     # Calculates the stagnation pressure ratio across the given shock
 
-    a = (0.5*(gamma+1.)*M*np.sin(beta))**2
-    b = 1.+0.5*(gamma-1.)*(M*np.sin(beta))**2
-    c = (gamma+1.)*(gamma*(M*np.sin(beta))**2-0.5*(gamma-1.))**(1./(gamma-1.))
+    x = M*np.sin(beta)
+    x2 = x*x
+    a = (0.5*(gamma+1.)*x)**2
+    b = 1.+0.5*(gamma-1.)*x2
+    c = (gamma+1.)*(gamma*x2-0.5*(gamma-1.))**(1./(gamma-1.))
     return 2./c*(a/b)**(gamma/(gamma-1.))
 
 
