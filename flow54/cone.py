@@ -1,4 +1,3 @@
-from unittest import result
 import scipy.optimize as sopt
 import scipy.integrate as sint
 
@@ -47,14 +46,18 @@ class ConeFlow:
         x1 = x[0]
         x2 = x[1]
 
-        # dV_r/dtheta
-        x_dot[0] = x2
+        # Make sure V_theta stays negative
+        if x2 < 0.0:
 
-        # d2V_r/dtheta2
-        x22 = x2*x2
-        f = 0.5*(self.gamma-1.0)*(1.0 - x1**2 - x22)
-        denom = f - x22
-        x_dot[1] = (x1*x22 - f*(2.0*x1 + x2/np.tan(theta))) / denom
+            # dV_r/dtheta
+            x_dot[0] = x2
+
+            # d2V_r/dtheta2
+            x22 = x2*x2
+            f = 0.5*(self.gamma-1.0)*(1.0 - x1**2 - x22)
+            denom = f - x22
+            print(denom)
+            x_dot[1] = (x1*x22 - f*(2.0*x1 + x2/np.tan(theta))) / denom
 
         return x_dot
 
